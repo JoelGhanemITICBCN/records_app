@@ -1,125 +1,310 @@
+// ignore_for_file: use_key_in_widget_constructors, prefer_const_constructors, sized_box_for_whitespace, avoid_print
+
+import 'dart:convert';
+// ignore: unused_import
+import 'dart:js';
+
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => NoteProvider(),
+      child: MyNoteApp(),
+    ),
+  );
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  // This widget is the root of your application.
+class MyNoteApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'App de records',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a blue toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+        primarySwatch: Colors.blue,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: NoteListScreen(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
+class NoteListScreen extends StatelessWidget {
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Center(child: Text('App de records')),
+      ),
+      body: Center(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          child: NoteListView(),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddNoteScreen(),
+            ),
+          );
+        },
+        child: Icon(Icons.add),
+      ),
+    );
+  }
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+class NoteListView extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<NoteProvider>(
+      builder: (context, provider, child) {
+        List<Note> notes = provider.getNotes();
+        return ListView.builder(
+          itemCount: notes.length,
+          itemBuilder: (context, index) {
+            return Card(
+              child: ListTile(
+                title: Text(notes[index].title),
+                subtitle: Text(notes[index].content),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => EditNoteScreen(noteIndex: index),
+                    ),
+                  ).then((editedNote) {
+                    if (editedNote != null) {
+                      provider.editNote(index, editedNote);
+                    }
+                  });
+                },
+                onLongPress: () {
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: Text("Eliminar Nota"),
+                        content: Text("Segur que vols eliminar aquesta nota?"),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: Text("Cancel·lar"),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              provider.deleteNote(index);
+                              Navigator.pop(context);
+                            },
+                            child: Text("Eliminar"),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+            );
+          },
+        );
+      },
+    );
   }
+}
+
+class NoteProvider extends ChangeNotifier {
+  late SharedPreferences _prefs;
+  static const String _key = 'notes';
+
+  List<Note> _notes = [];
+
+  NoteProvider() {
+    _loadNotes();
+  }
+
+  List<Note> getNotes() => _notes;
+
+  void addNote(Note note) {
+    _notes.add(note);
+    _saveNotes();
+    notifyListeners();
+  }
+
+  void editNote(int index, Note editedNote) {
+    _notes[index] = editedNote;
+    _saveNotes();
+    notifyListeners();
+  }
+
+  void deleteNote(int index) {
+    _notes.removeAt(index);
+    _saveNotes();
+    notifyListeners();
+  }
+
+  void _loadNotes() async {
+    _prefs = await SharedPreferences.getInstance();
+    String notesString = _prefs.getString(_key) ?? '[]';
+    List<dynamic> notesJson = jsonDecode(notesString);
+    _notes = notesJson.map((note) => Note.fromJson(note)).toList();
+    notifyListeners();
+  }
+
+  void _saveNotes() {
+    List<Map<String, dynamic>> notesJson = _notes.map((note) => note.toJson()).toList();
+    _prefs.setString(_key, jsonEncode(notesJson));
+  }
+}
+
+class AddNoteScreen extends StatelessWidget {
+  final TextEditingController titleController = TextEditingController();
+  final TextEditingController contentController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: Text('Afegir Nota'),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: titleController,
+              decoration: InputDecoration(labelText: 'Títol'),
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+            SizedBox(height: 16),
+            TextField(
+              controller: contentController,
+              decoration: InputDecoration(labelText: 'Contingut'),
+              maxLines: 4,
+            ),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                final provider = Provider.of<NoteProvider>(context, listen: false);
+                provider.addNote(
+                  Note(
+                    title: titleController.text,
+                    content: contentController.text,
+                  ),
+                );
+                Navigator.pop(context); // Cerrar la pantalla de añadir nota
+              },
+              child: Text('Afegir Nota'),
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+    );
+  }
+}
+
+class EditNoteScreen extends StatelessWidget {
+  final int noteIndex;
+  final TextEditingController titleController = TextEditingController();
+  final TextEditingController contentController = TextEditingController();
+
+  EditNoteScreen({required this.noteIndex});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<NoteProvider>(context, listen: false);
+
+     final note = provider.getNotes()[noteIndex];
+    titleController.text = note.title;
+    contentController.text = note.content;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Editar Nota'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: titleController,
+              decoration: InputDecoration(labelText: 'Títol'),
+            ),
+            SizedBox(height: 16),
+            TextField(
+              controller: contentController,
+              decoration: InputDecoration(labelText: 'Contingut'),
+              maxLines: 4,
+            ),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                provider.editNote(
+                  noteIndex,
+                  Note(
+                    title: titleController.text,
+                    content: contentController.text,
+                  ),
+                );
+                Navigator.pop(context); // Volver a la pantalla anterior
+              },
+              child: Text('Guardar Canvis'),
+            ),
+           ElevatedButton(
+  onPressed: () {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Eliminar Nota"),
+          content: Text("Segur que vols eliminar aquesta nota?"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text("Cancel·lar"),
+            ),
+            TextButton(
+              onPressed: () {
+                provider.deleteNote(noteIndex);
+                Navigator.popUntil(context, ModalRoute.withName('/')); // Regresar a la vista principal
+              },
+              child: Text("Eliminar"),
+            ),
+          ],
+        );
+      },
+    );
+  },
+  child: Text('Eliminar Nota'),
+),
+
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+class Note {
+  final String title;
+  final String content;
+
+  Note({required this.title, required this.content});
+
+  Map<String, dynamic> toJson() {
+    return {'title': title, 'content': content};
+  }
+
+  factory Note.fromJson(Map<String, dynamic> json) {
+    return Note(
+      title: json['title'],
+      content: json['content'],
     );
   }
 }
