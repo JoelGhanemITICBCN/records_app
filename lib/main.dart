@@ -44,6 +44,7 @@ class NoteListScreen extends StatelessWidget {
           child: NoteListView(),
         ),
       ),
+      //Boton que te manda a la pagina de agregar notas
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
@@ -59,11 +60,13 @@ class NoteListScreen extends StatelessWidget {
   }
 }
 
+//Vista principal de notas
 class NoteListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<NoteProvider>(
       builder: (context, provider, child) {
+        //Lista con todas las notas
         List<Note> notes = provider.getNotes();
         return ListView.builder(
           itemCount: notes.length,
@@ -84,6 +87,7 @@ class NoteListView extends StatelessWidget {
                     }
                   });
                 },
+                //Al Mantener pulsado te manda lo de borrar
                 onLongPress: () {
                   showDialog(
                     context: context,
@@ -117,6 +121,7 @@ class NoteListView extends StatelessWidget {
   }
 }
 
+//
 class NoteProvider extends ChangeNotifier {
   late SharedPreferences _prefs;
   static const String _key = 'notes';
@@ -161,6 +166,7 @@ class NoteProvider extends ChangeNotifier {
   }
 }
 
+//Pantalla de agregar nota
 class AddNoteScreen extends StatelessWidget {
   final TextEditingController titleController = TextEditingController();
   final TextEditingController contentController = TextEditingController();
@@ -230,6 +236,7 @@ class EditNoteScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          //Campos del edit note
           children: [
             TextField(
               controller: titleController,
@@ -257,6 +264,7 @@ class EditNoteScreen extends StatelessWidget {
             ),
            ElevatedButton(
   onPressed: () {
+    //Alerta de estas seguro
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -265,7 +273,7 @@ class EditNoteScreen extends StatelessWidget {
           content: Text("Segur que vols eliminar aquesta nota?"),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(context),//Para volver a la pag anterior
               child: Text("Cancel·lar"),
             ),
             TextButton(
@@ -291,6 +299,7 @@ class EditNoteScreen extends StatelessWidget {
 }
 
 
+//Clase nota
 class Note {
   final String title;
   final String content;
