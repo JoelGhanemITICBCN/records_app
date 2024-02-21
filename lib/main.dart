@@ -1,9 +1,4 @@
-// ignore_for_file: use_key_in_widget_constructors, prefer_const_constructors, sized_box_for_whitespace, avoid_print
-
 import 'dart:convert';
-// ignore: unused_import
-import 'dart:js';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -155,14 +150,17 @@ class NoteProvider extends ChangeNotifier {
   void _loadNotes() async {
     _prefs = await SharedPreferences.getInstance();
     String notesString = _prefs.getString(_key) ?? '[]';
+    print('Loaded notes from SharedPreferences: $notesString');
     List<dynamic> notesJson = jsonDecode(notesString);
     _notes = notesJson.map((note) => Note.fromJson(note)).toList();
     notifyListeners();
   }
 
   void _saveNotes() {
-    List<Map<String, dynamic>> notesJson = _notes.map((note) => note.toJson()).toList();
+    List<Map<String, dynamic>> notesJson =
+        _notes.map((note) => note.toJson()).toList();
     _prefs.setString(_key, jsonEncode(notesJson));
+    print('Notes saved to SharedPreferences: $notesJson');
   }
 }
 
@@ -195,7 +193,8 @@ class AddNoteScreen extends StatelessWidget {
             SizedBox(height: 16),
             ElevatedButton(
               onPressed: () {
-                final provider = Provider.of<NoteProvider>(context, listen: false);
+                final provider =
+                    Provider.of<NoteProvider>(context, listen: false);
                 provider.addNote(
                   Note(
                     title: titleController.text,
@@ -224,7 +223,7 @@ class EditNoteScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = Provider.of<NoteProvider>(context, listen: false);
 
-     final note = provider.getNotes()[noteIndex];
+    final note = provider.getNotes()[noteIndex];
     titleController.text = note.title;
     contentController.text = note.content;
 
@@ -262,42 +261,42 @@ class EditNoteScreen extends StatelessWidget {
               },
               child: Text('Guardar Canvis'),
             ),
-           ElevatedButton(
-  onPressed: () {
-    //Alerta de estas seguro
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text("Eliminar Nota"),
-          content: Text("Segur que vols eliminar aquesta nota?"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),//Para volver a la pag anterior
-              child: Text("Cancel·lar"),
-            ),
-            TextButton(
+            ElevatedButton(
               onPressed: () {
-                provider.deleteNote(noteIndex);
-                Navigator.popUntil(context, ModalRoute.withName('/')); // Regresar a la vista principal
+                showDialog(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return AlertDialog(
+                      title: Text("Eliminar Nota"),
+                      content: Text("Segur que vols eliminar aquesta nota?"),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text("Cancel·lar"),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            provider.deleteNote(noteIndex);
+                            Navigator.popUntil(
+                                context,
+                                ModalRoute.withName(
+                                    '/')); // Regresar a la vista principal
+                          },
+                          child: Text("Eliminar"),
+                        ),
+                      ],
+                    );
+                  },
+                );
               },
-              child: Text("Eliminar"),
+              child: Text('Eliminar Nota'),
             ),
-          ],
-        );
-      },
-    );
-  },
-  child: Text('Eliminar Nota'),
-),
-
           ],
         ),
       ),
     );
   }
 }
-
 
 //Clase nota
 class Note {
